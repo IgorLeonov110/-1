@@ -1,0 +1,250 @@
+{\rtf1\ansi\ansicpg1251\cocoartf2869
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 .SFNS-Regular_wdth_opsz110000_GRAD_wght2580000;}
+{\colortbl;\red255\green255\blue255;\red247\green249\blue250;\red17\green17\blue18;}
+{\*\expandedcolortbl;;\cssrgb\c97647\c98039\c98431;\cssrgb\c8235\c8235\c9020;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww27100\viewh15800\viewkind0
+\deftab720
+\pard\pardeftab720\sa320\qj\partightenfactor0
+
+\f0\b\fs32 \cf2 \cb3 \expnd0\expndtw0\kerning0
+import json\
+import os\
+import tkinter as tk\
+from tkinter import ttk, messagebox\
+from datetime import datetime\
+\
+class WeatherDiary:\
+    def __init__(self, root):\
+        self.root = root\
+        self.root.title("Weather Diary")\
+        self.root.geometry("800x600")\
+        \
+        self.records = []\
+        self.load_file()\
+        \
+        self.create_input_frame()\
+        self.create_tree_frame()\
+        self.create_filter_frame()\
+        self.create_button_frame()\
+        \
+        self.update_tree()\
+    \
+    def create_input_frame(self):\
+        input_frame = ttk.LabelFrame(self.root, text="Add New Record", padding=10)\
+        input_frame.pack(fill="x", padx=10, pady=5)\
+        \
+        ttk.Label(input_frame, text="Date (YYYY-MM-DD):").grid(row=0, column=0, sticky="w", padx=5, pady=5)\
+        self.date_entry = ttk.Entry(input_frame, width=15)\
+        self.date_entry.grid(row=0, column=1, padx=5, pady=5)\
+        self.date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))\
+        \
+        ttk.Label(input_frame, text="Temperature (\'b0C):").grid(row=0, column=2, sticky="w", padx=5, pady=5)\
+        self.temp_entry = ttk.Entry(input_frame, width=10)\
+        self.temp_entry.grid(row=0, column=3, padx=5, pady=5)\
+        \
+        ttk.Label(input_frame, text="Description:").grid(row=1, column=0, sticky="w", padx=5, pady=5)\
+        self.desc_entry = ttk.Entry(input_frame, width=30)\
+        self.desc_entry.grid(row=1, column=1, columnspan=3, padx=5, pady=5, sticky="ew")\
+        \
+        ttk.Label(input_frame, text="Precipitation:").grid(row=2, column=0, sticky="w", padx=5, pady=5)\
+        self.precipitation_var = tk.BooleanVar()\
+        ttk.Checkbutton(input_frame, text="Yes", variable=self.precipitation_var).grid(row=2, column=1, sticky="w", padx=5, pady=5)\
+    \
+    def create_tree_frame(self):\
+        tree_frame = ttk.LabelFrame(self.root, text="Weather Records", padding=10)\
+        tree_frame.pack(fill="both", expand=True, padx=10, pady=5)\
+        \
+        columns = ("date", "temperature", "description", "precipitation")\
+        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)\
+        \
+        self.tree.heading("date", text="Date")\
+        self.tree.heading("temperature", text="Temperature (\'b0C)")\
+        self.tree.heading("description", text="Description")\
+        self.tree.heading("precipitation", text="Precipitation")\
+        \
+        self.tree.column("date", width=100)\
+        self.tree.column("temperature", width=100)\
+        self.tree.column("description", width=300)\
+        self.tree.column("precipitation", width=100)\
+        \
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)\
+        self.tree.configure(yscrollcommand=scrollbar.set)\
+        \
+        self.tree.pack(side="left", fill="both", expand=True)\
+        scrollbar.pack(side="right", fill="y")\
+    \
+    def create_filter_frame(self):\
+        filter_frame = ttk.LabelFrame(self.root, text="Filters", padding=10)\
+        filter_frame.pack(fill="x", padx=10, pady=5)\
+        \
+        ttk.Label(filter_frame, text="Filter by Date:").grid(row=0, column=0, sticky="w", padx=5, pady=5)\
+        self.filter_date_entry = ttk.Entry(filter_frame, width=15)\
+        self.filter_date_entry.grid(row=0, column=1, padx=5, pady=5)\
+        \
+        ttk.Label(filter_frame, text="Filter by Temperature >:").grid(row=0, column=2, sticky="w", padx=5, pady=5)\
+        self.filter_temp_entry = ttk.Entry(filter_frame, width=10)\
+        self.filter_temp_entry.grid(row=0, column=3, padx=5, pady=5)\
+        \
+        ttk.Button(filter_frame, text="Apply Filters", command=self.apply_filters).grid(row=0, column=4, padx=10, pady=5)\
+        ttk.Button(filter_frame, text="Clear Filters", command=self.clear_filters).grid(row=0, column=5, padx=5, pady=5)\
+    \
+    def create_button_frame(self):\
+        button_frame = ttk.Frame(self.root)\
+        button_frame.pack(fill="x", padx=10, pady=10)\
+        \
+        ttk.Button(button_frame, text="Add Record", command=self.add_record).pack(side="left", padx=5)\
+        ttk.Button(button_frame, text="Delete Selected", command=self.delete_record).pack(side="left", padx=5)\
+        ttk.Button(button_frame, text="Save to JSON", command=self.save_to_file).pack(side="left", padx=5)\
+        ttk.Button(button_frame, text="Load from JSON", command=self.load_from_file).pack(side="left", padx=5)\
+    \
+    def validate_date(self, date_str):\
+        try:\
+            datetime.strptime(date_str, "%Y-%m-%d")\
+            return True\
+        except ValueError:\
+            return False\
+    \
+    def validate_temperature(self, temp_str):\
+        try:\
+            float(temp_str)\
+            return True\
+        except ValueError:\
+            return False\
+    \
+    def add_record(self):\
+        date = self.date_entry.get().strip()\
+        temperature = self.temp_entry.get().strip()\
+        description = self.desc_entry.get().strip()\
+        precipitation = self.precipitation_var.get()\
+        \
+        if not date:\
+            messagebox.showerror("Error", "Date is required")\
+            return\
+        \
+        if not self.validate_date(date):\
+            messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD")\
+            return\
+        \
+        if not temperature:\
+            messagebox.showerror("Error", "Temperature is required")\
+            return\
+        \
+        if not self.validate_temperature(temperature):\
+            messagebox.showerror("Error", "Temperature must be a number")\
+            return\
+        \
+        if not description:\
+            messagebox.showerror("Error", "Description cannot be empty")\
+            return\
+        \
+        record = \{\
+            "date": date,\
+            "temperature": float(temperature),\
+            "description": description,\
+            "precipitation": "Yes" if precipitation else "No"\
+        \}\
+        \
+        self.records.append(record)\
+        self.records.sort(key=lambda x: x["date"])\
+        self.update_tree()\
+        \
+        self.date_entry.delete(0, tk.END)\
+        self.date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))\
+        self.temp_entry.delete(0, tk.END)\
+        self.desc_entry.delete(0, tk.END)\
+        self.precipitation_var.set(False)\
+        \
+        messagebox.showinfo("Success", "Record added successfully")\
+    \
+    def update_tree(self, records_to_show=None):\
+        for item in self.tree.get_children():\
+            self.tree.delete(item)\
+        \
+        data = records_to_show if records_to_show is not None else self.records\
+        \
+        for record in data:\
+            self.tree.insert("", "end", values=(\
+                record["date"],\
+                record["temperature"],\
+                record["description"],\
+                record["precipitation"]\
+            ))\
+    \
+    def delete_record(self):\
+        selected = self.tree.selection()\
+        if not selected:\
+            messagebox.showwarning("Warning", "Please select a record to delete")\
+            return\
+        \
+        if messagebox.askyesno("Confirm", "Delete selected record?"):\
+            for item in selected:\
+                values = self.tree.item(item, "values")\
+                for i, record in enumerate(self.records):\
+                    if (record["date"] == values[0] and \
+                        record["temperature"] == float(values[1]) and \
+                        record["description"] == values[2]):\
+                        self.records.pop(i)\
+                        break\
+            self.update_tree()\
+            messagebox.showinfo("Success", "Record deleted")\
+    \
+    def apply_filters(self):\
+        filter_date = self.filter_date_entry.get().strip()\
+        filter_temp = self.filter_temp_entry.get().strip()\
+        \
+        filtered = self.records.copy()\
+        \
+        if filter_date:\
+            if self.validate_date(filter_date):\
+                filtered = [r for r in filtered if r["date"] == filter_date]\
+            else:\
+                messagebox.showerror("Error", "Invalid filter date format")\
+                return\
+        \
+        if filter_temp:\
+            if self.validate_temperature(filter_temp):\
+                temp_threshold = float(filter_temp)\
+                filtered = [r for r in filtered if r["temperature"] > temp_threshold]\
+            else:\
+                messagebox.showerror("Error", "Filter temperature must be a number")\
+                return\
+        \
+        self.update_tree(filtered)\
+    \
+    def clear_filters(self):\
+        self.filter_date_entry.delete(0, tk.END)\
+        self.filter_temp_entry.delete(0, tk.END)\
+        self.update_tree()\
+    \
+    def save_to_file(self):\
+        try:\
+            with open("weather_diary.json", "w", encoding="utf-8") as f:\
+                json.dump(self.records, f, ensure_ascii=False, indent=4)\
+            messagebox.showinfo("Success", "Data saved to weather_diary.json")\
+        except Exception as e:\
+            messagebox.showerror("Error", f"Failed to save: \{str(e)\}")\
+    \
+    def load_from_file(self):\
+        try:\
+            if os.path.exists("weather_diary.json"):\
+                with open("weather_diary.json", "r", encoding="utf-8") as f:\
+                    self.records = json.load(f)\
+                self.update_tree()\
+                messagebox.showinfo("Success", "Data loaded from weather_diary.json")\
+            else:\
+                messagebox.showwarning("Warning", "File weather_diary.json not found")\
+        except Exception as e:\
+            messagebox.showerror("Error", f"Failed to load: \{str(e)\}")\
+    \
+    def load_file(self):\
+        if os.path.exists("weather_diary.json"):\
+            try:\
+                with open("weather_diary.json", "r", encoding="utf-8") as f:\
+                    self.records = json.load(f)\
+            except:\
+                self.records = []\
+\
+if __name__ == "__main__":\
+    root = tk.Tk()\
+    app = WeatherDiary(root)\
+    root.mainloop()}
