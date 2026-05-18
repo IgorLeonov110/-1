@@ -75,4 +75,4 @@ Git и GitHub
 
 Добавлен файл .gitignore, исключающий __pycache__/, *.pyc, .vscode/, venv/, .idea/
 
-Проект выложен на GitHub по адресу: 
+Проект выложен на GitHub по адресу: https://github.com/IgorLeonov110/-1.git
